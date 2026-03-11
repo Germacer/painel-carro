@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Car System Telemetry - Alert Edition</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #000000;
+            --accent-red: #ff3b30;
+            --subtle-gray: #1c1c1e;
+            --text-main: #ffffff;
+            --text-dim: #555;
+            --gauge-size: 320px;
+        }
+
+        body, html {
+            margin: 0; padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Inter', 'Segoe UI', Roboto, sans-serif;
+            height: 100vh; width: 100vw;
+            overflow: hidden;
+            transition: background-color 0.3s ease;
+        }
+
+        /* Animação de Alerta Visual */
+        @keyframes alert-pulse {
+            0% { background-color: #000000; }
+            50% { background-color: #400000; }
+            100% { background-color: #000000; }
+        }
+
+        .speed-alert-active {
+            animation: alert-pulse 0.6s infinite;
+        }
+
+        .screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            transition: opacity 0.4s ease; display: flex; flex-direction: column;
+        }
+
+        .hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+
+        /* --- HOME SCREEN --- */
+        #home-screen { justify-content: center; align-items: center; text-align: center; }
+        .welcome-text { font-size: 1rem; letter-spacing: 6px; color: var(--text-dim); text-transform: uppercase; }
+        .clock-time { font-size: 7rem; font-weight: 100; margin: 0; }
+        .clock-date { font-size: 1.5rem; font-weight: 300; color: var(--accent-red); margin-top: -10px; }
+
+        /* --- DASHBOARD LAYOUT --- */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1.8fr 1fr;
+            gap: 20px;
+            padding: 40px;
+            flex-grow: 1;
+            align-items: center;
+        }
+
+        /* DIV 1: LOG DE VELOCIDADE */
+        #speed-log-container { z-index: 2; }
+        #speed-log {
+            height: 300px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            font-family: monospace;
+            border-left: 2px solid var(--subtle-gray);
+            padding-left: 20px;
+        }
+        .log-entry {
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+            color: var(--text-dim);
+            animation: slideIn 0.3s ease-out;
+        }
+        .log-entry b { color: var(--accent-red); font-weight: normal; }
+        .log-header { font-size: 0.7rem; color: var(--accent-red); letter-spacing: 2px; margin-bottom: 15px; text-transform: uppercase; }
+
+        /* DIV 2: VELOCÍMETRO */
+        .center-panel { position: relative; text-align: center; }
+        .speedometer-container { position: relative; width: var(--gauge-size); height: var(--gauge-size); margin: 0 auto; }
+        .gauge-svg { transform: rotate(-90deg); width: var(--gauge-size); height: var(--gauge-size); }
+        .gauge-bg { fill: none; stroke: var(--subtle-gray); stroke-width: 2; }
+        .gauge-progress {
+            fill: none; stroke: var(--accent-red); stroke-width: 5;
+            stroke-linecap: round; stroke-dasharray: 628; stroke-dashoffset: 628;
+            transition: stroke-dashoffset 0.4s ease-out;
+        }
+        
+        /* Brilho no progresso quando acima de 60 */
+        .gauge-alert {
+            filter: drop-shadow(0 0 12px var(--accent-red));
+            stroke-width: 8;
+        }
+
+        .speed-val { font-size: 8rem; font-weight: 100; line-height: 1; position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); }
+        .unit { position: absolute; top: 70%; left: 50%; transform: translate(-50%, -50%); font-size: 1rem; color: var(--text-dim); letter-spacing: 4px; }
+
+        /* DIV 3: GRÁFICO */
+        .side-panel { height: 180px; }
+
+        /* CONTROLES FLUTUANTES */
+        .fab {
+            position: fixed; bottom: 30px; right: 30px;
+            width: 65px; height: 65px; background: var(--accent-red);
+            border-radius: 50%; display: flex; justify-content: center; align-items: center;
+            border: none; cursor: pointer; z-index: 1000;
+        }
+        .fab-back { right: auto; left: 30px; background: var(--subtle-gray); opacity: 0.5; }
+
+        @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+
+        footer { text-align: center; padding: 20px; font-size: 0.7rem; color: #222; text-transform: uppercase; }
+    </style>
+</head>
+<body>
+
+    <div id="home-screen" class="screen">
+        <div class="welcome-text">Início de Trajeto</div>
+        <div class="clock-time" id="home-time">00:00</div>
+        <div class="clock-date" id="home-date">10 de Março de 2026</div>
+        
+        <button class="fab" onclick="toggleScreen('dash')">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="white"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>
+        </button>
+    </div>
+
+    <div id="dash-screen" class="screen hidden">
+        <div class="dashboard-grid">
+            <div id="speed-log-container">
+                <div class="log-header">Max Speed / 30s Log</div>
+                <div id="speed-log"></div>
+            </div>
+
+            <div class="center-panel">
+                <div class="speedometer-container">
+                    <svg class="gauge-svg"><circle class="gauge-bg" cx="160" cy="160" r="100"></circle>
+                        <circle id="progress" class="gauge-progress" cx="160" cy="160" r="100"></circle>
+                    </svg>
+                    <span class="speed-val" id="speed-num">0</span>
+                    <span class="unit">KM/H</span>
+                </div>
+            </div>
+
+            <div class="side-panel">
+                <canvas id="rightChart"></canvas>
+            </div>
+        </div>
+
+        <footer>
+            DASHBOARD V2.1 - ALERTA DE VELOCIDADE ATIVO (60 KM/H)
+        </footer>
+
+        <button class="fab fab-back" onclick="toggleScreen('home')">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="white"><path d="M15.41 7.41L10.83 12l4.58 4.59L14 18l-6-6 6-6 1.41 1.41z"/></svg>
+        </button>
+    </div>
+
+    <script>
+        let currentSpeed = 0;
+        let maxSpeedInInterval = 0;
+        const MAX_LOGS = 8;
+        const CIRCUMFERENCE = 2 * Math.PI * 100;
+        const ALERT_THRESHOLD = 60;
+
+        function updateClock() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            document.getElementById('home-time').innerText = timeStr;
+            document.getElementById('home-date').innerText = now.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        function toggleScreen(target) {
+            if(target === 'dash') {
+                document.getElementById('home-screen').classList.add('hidden');
+                document.getElementById('dash-screen').classList.remove('hidden');
+                document.documentElement.requestFullscreen().catch(() => {});
+            } else {
+                document.getElementById('dash-screen').classList.add('hidden');
+                document.getElementById('home-screen').classList.remove('hidden');
+                // Remove alerta ao voltar para home
+                document.body.classList.remove('speed-alert-active');
+            }
+        }
+
+        setInterval(() => {
+            if (document.getElementById('dash-screen').classList.contains('hidden')) return;
+            const now = new Date();
+            const timestamp = now.toLocaleTimeString('pt-BR');
+            const logContainer = document.getElementById('speed-log');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `${timestamp} &nbsp; <b>${Math.round(maxSpeedInInterval)} km/h</b>`;
+            logContainer.prepend(entry);
+            if (logContainer.children.length > MAX_LOGS) logContainer.lastChild.remove();
+            maxSpeedInInterval = 0;
+        }, 30000);
+
+        const rightChart = new Chart(document.getElementById('rightChart').getContext('2d'), {
+            type: 'line',
+            data: { labels: Array(15).fill(''), datasets: [{ data: Array(15).fill(0), borderColor: '#ff3b30', borderWidth: 1, fill: true, backgroundColor: 'rgba(255,59,48,0.05)', pointRadius: 0, tension: 0.4 }] },
+            options: { responsive: true, maintainAspectRatio: false, scales: { y: { display: false }, x: { display: false } }, plugins: { legend: { display: false } } }
+        });
+
+        function updateUI(kmh) {
+            currentSpeed = kmh;
+            if (kmh > maxSpeedInInterval) maxSpeedInInterval = kmh;
+
+            // Lógica do Alerta (60km/h)
+            const body = document.body;
+            const progress = document.getElementById('progress');
+            
+            if (kmh > ALERT_THRESHOLD) {
+                body.classList.add('speed-alert-active');
+                progress.classList.add('gauge-alert');
+            } else {
+                body.classList.remove('speed-alert-active');
+                progress.classList.remove('gauge-alert');
+            }
+
+            const val = Math.min(Math.max(kmh, 0), 200);
+            const offset = CIRCUMFERENCE - (val / 200) * CIRCUMFERENCE;
+            progress.style.strokeDashoffset = offset;
+            document.getElementById('speed-num').innerText = Math.round(val);
+
+            rightChart.data.datasets[0].data.push(val + (Math.random() * 2));
+            rightChart.data.datasets[0].data.shift();
+            rightChart.update('none');
+        }
+
+        if ("geolocation" in navigator) {
+            navigator.geolocation.watchPosition((pos) => {
+                updateUI((pos.coords.speed || 0) * 3.6);
+            }, null, { enableHighAccuracy: true });
+        }
+    </script>
+</body>
+</html>
