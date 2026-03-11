@@ -3,8 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="mobile-web-app-capable" content="yes">
-    <title>Germacer - Dynamic Navigation</title>
+    <title>Germacer - Navi Pro</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
     <style>
         :root {
             --bg-color: #000000;
@@ -12,144 +14,125 @@
             --success-color: #00ff00;
         }
 
-        body, html {
-            margin: 0; padding: 0;
-            background-color: var(--bg-color);
-            color: #fff;
-            font-family: 'Segoe UI', sans-serif;
-            height: 100vh; width: 100vw;
-            overflow: hidden;
-        }
+        body, html { margin: 0; padding: 0; background: #000; color: #fff; font-family: sans-serif; height: 100vh; overflow: hidden; }
 
-        #splash-screen {
+        /* Splash Screen */
+        #splash {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000; z-index: 1000;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            cursor: pointer;
+            background: #000; z-index: 9999; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; cursor: pointer;
         }
 
+        /* Shift Light */
         #shift-light {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none; z-index: 100;
-            box-shadow: inset 0 0 100px rgba(255, 0, 0, 0);
-            transition: box-shadow 0.2s;
+            pointer-events: none; z-index: 100; transition: 0.2s;
         }
         .shift-active { animation: shift-pulse 0.4s infinite alternate; }
         @keyframes shift-pulse {
-            from { box-shadow: inset 0 0 40px rgba(255, 0, 0, 0.5); background: rgba(255, 0, 0, 0.1); }
-            to { box-shadow: inset 0 0 150px rgba(255, 0, 0, 1); background: rgba(255, 0, 0, 0.2); }
+            from { box-shadow: inset 0 0 50px rgba(255,0,0,0.4); }
+            to { box-shadow: inset 0 0 150px rgba(255,0,0,1); background: rgba(255,0,0,0.1); }
         }
 
-        .dashboard-container { display: flex; height: 100vh; width: 100vw; position: relative; }
+        .dashboard { display: flex; height: 100vh; position: relative; }
 
-        .telemetry-panel {
-            position: absolute; left: 0; top: 0; width: 40%; height: 100%;
+        /* Telemetria */
+        .telemetry {
+            position: absolute; left: 0; width: 40%; height: 100%;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 10;
-            background: linear-gradient(90deg, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 80%, rgba(0,0,0,0) 100%);
+            z-index: 1000; background: linear-gradient(90deg, #000 70%, transparent 100%);
             pointer-events: none;
         }
+        .speed { font-size: 14rem; font-weight: 900; line-height: 0.8; }
+        .unit { font-size: 2rem; color: var(--accent-color); letter-spacing: 5px; }
 
-        .speed-value { font-size: 16rem; font-weight: 900; line-height: 0.8; }
-        .speed-unit { font-size: 2rem; color: var(--accent-color); font-weight: bold; letter-spacing: 5px; }
+        /* Mapa */
+        #map {
+            position: absolute; right: 0; width: 75%; height: 100%; z-index: 1;
+            /* Efeito de Inclinação 3D */
+            transform: perspective(500px) rotateX(20deg);
+            transform-origin: bottom;
+            filter: invert(100%) hue-rotate(180deg) brightness(0.4) contrast(1.3);
+        }
 
-        .info-grid { display: flex; gap: 30px; margin-top: 50px; text-align: center; }
-        .info-data { font-size: 2.2rem; font-weight: 700; color: #fff; }
-        .info-label { font-size: 0.7rem; color: #444; letter-spacing: 2px; }
-
-        .map-panel { position: absolute; right: 0; top: 0; width: 80%; height: 100%; z-index: 1; }
-        iframe { width: 100%; height: 100%; border: none; filter: invert(90%) hue-rotate(180deg) brightness(0.4) contrast(1.2); }
-
-        #gps-status { position: absolute; top: 20px; right: 20px; width: 10px; height: 10px; border-radius: 50%; background: #333; z-index: 20; }
-        .gps-online { background: var(--success-color) !important; box-shadow: 0 0 10px var(--success-color); }
+        #gps-status { position: absolute; top: 20px; right: 20px; width: 12px; height: 12px; border-radius: 50%; background: #333; z-index: 2000; }
+        .gps-on { background: var(--success-color); box-shadow: 0 0 10px var(--success-color); }
     </style>
 </head>
 <body>
 
-<div id="splash-screen" onclick="startDashboard()">
-    <h1 style="color: var(--accent-color); letter-spacing: 15px;">GERMACER</h1>
-    <p style="color: #444;">TOQUE PARA ATIVAR NAVEGAÇÃO 3D</p>
+<div id="splash" onclick="init()">
+    <h1 style="color:var(--accent-color); letter-spacing:15px;">GERMACER</h1>
+    <p>TOQUE PARA INICIAR MAPA 3D</p>
 </div>
 
 <div id="shift-light"></div>
+<div id="gps-status"></div>
 
-<div class="dashboard-container">
-    <div class="telemetry-panel">
-        <div class="speed-box">
-            <div class="speed-value" id="current-speed">0</div>
-            <div style="text-align: center;"><span class="speed-unit">KM/H</span></div>
-        </div>
-        
-        <div class="info-grid">
-            <div class="info-item">
-                <div class="info-label">ALTITUDE</div>
-                <div class="info-data"><span id="altitude-val">0</span><small style="font-size: 1rem; color:#222">m</small></div>
-            </div>
-            <div class="info-item" style="border-left: 1px solid #222; padding-left: 30px;">
-                <div class="info-label">RUMO</div>
-                <div class="info-data" id="compass-val" style="color: var(--success-color);">--</div>
-            </div>
-        </div>
+<div class="dashboard">
+    <div class="telemetry">
+        <div class="speed" id="speed">0</div>
+        <div class="unit">KM/H</div>
+        <div id="altitude" style="margin-top:20px; font-size:1.5rem; color:#444">ALT: --m</div>
     </div>
-
-    <div class="map-panel">
-        <div id="gps-status"></div>
-        <iframe id="map-frame" src="about:blank"></iframe>
-    </div>
+    <div id="map"></div>
 </div>
 
 <script>
-    const mapFrame = document.getElementById('map-frame');
-    const LIMIT_SPEED = 60;
-    let lastLat, lastLon, lastHeading;
+    let map, marker;
+    const speedEl = document.getElementById('speed');
+    const shiftLight = document.getElementById('shift-light');
 
-    function startDashboard() {
-        document.documentElement.requestFullscreen?.();
-        document.getElementById('splash-screen').style.display = 'none';
-        updateMap(userLat || -19.59, userLon || -46.94, 0);
+    function init() {
+        document.getElementById('splash').style.display = 'none';
+        if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+
+        // Inicializa o Mapa focado em Araxá (ou sua posição)
+        map = L.map('map', {
+            zoomControl: false,
+            attributionControl: false
+        }).setView([-19.59, -46.94], 17);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+        // Ícone do Carro (Triângulo)
+        const carIcon = L.divIcon({
+            className: 'car-icon',
+            html: '<div style="width:20px; height:20px; background:var(--success-color); clip-path: polygon(50% 0%, 0% 100%, 100% 100%); shadow: 0 0 10px #0f0;"></div>',
+            iconSize: [20, 20]
+        });
+
+        marker = L.marker([-19.59, -46.94], {icon: carIcon}).addTo(map);
+
+        startTracking();
     }
 
-    function updateMap(lat, lon, heading) {
-        // Parametros: 45 graus de inclinação (tilt), zoom 18 para detalhe de rua
-        // O parâmetro 'heading' rotaciona o mapa na direção que você está indo
-        const h = heading || 0;
-        const url = `https://www.google.com/maps/embed/v1/view?key=YOUR_API_KEY&center=${lat},${lon}&zoom=18&maptype=roadmap&heading=${h}&pitch=45`;
-        
-        // Nota: Para uso sem chave de API em modo embed simples:
-        const simpleUrl = `http://googleusercontent.com/maps.google.com/7{lat},${lon},18z/data=!3m1!1e3!4m2!1m1!4e2?hl=pt-BR`;
-        
-        if (mapFrame.src !== simpleUrl) {
-            mapFrame.src = simpleUrl;
+    function startTracking() {
+        if ("geolocation" in navigator) {
+            navigator.geolocation.watchPosition(pos => {
+                document.getElementById('gps-status').className = 'gps-on';
+                const { latitude, longitude, speed, heading, altitude } = pos.coords;
+                
+                const kmh = speed ? Math.round(speed * 3.6) : 0;
+                speedEl.innerText = kmh;
+
+                // Shift Light > 60km/h
+                if(kmh > 60) shiftLight.classList.add('shift-active');
+                else shiftLight.classList.remove('shift-active');
+
+                if(altitude) document.getElementById('altitude').innerText = `ALT: ${Math.round(altitude)}m`;
+
+                // Atualiza posição do mapa e do marcador
+                const newPos = [latitude, longitude];
+                marker.setLatLng(newPos);
+                map.panTo(newPos);
+
+                // Gira o mapa conforme a direção (Heading)
+                if (heading !== null) {
+                    document.getElementById('map').style.transform = `perspective(500px) rotateX(25deg) rotateZ(${-heading}deg)`;
+                }
+            }, null, { enableHighAccuracy: true });
         }
-    }
-
-    if ("geolocation" in navigator) {
-        navigator.geolocation.watchPosition(pos => {
-            document.getElementById('gps-status').className = 'gps-online';
-            const { latitude, longitude, speed, altitude, heading } = pos.coords;
-
-            // Atualiza Velocidade
-            const kmh = speed ? Math.round(speed * 3.6) : 0;
-            document.getElementById('current-speed').innerText = kmh;
-
-            // Shift Light
-            if (kmh > LIMIT_SPEED) shiftLight.classList.add('shift-active');
-            else shiftLight.classList.remove('shift-active');
-
-            // Atualiza Altitude e Bússola
-            if (altitude) document.getElementById('altitude-val').innerText = Math.round(altitude);
-            
-            if (heading !== null) {
-                const directions = ['N', 'NE', 'L', 'SE', 'S', 'SO', 'O', 'NO'];
-                document.getElementById('compass-val').innerText = directions[Math.round(heading / 45) % 8];
-            }
-
-            // AUTO-FOLLOW: Atualiza o mapa apenas se houver mudança significativa ou movimento
-            if (Math.abs(latitude - lastLat) > 0.0001 || Math.abs(heading - lastHeading) > 5) {
-                updateMap(latitude, longitude, heading);
-                lastLat = latitude; lastLon = longitude; lastHeading = heading;
-            }
-        }, null, { enableHighAccuracy: true, maximumAge: 1000 });
     }
 </script>
 </body>
