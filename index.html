@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black">
-    <title>Germacer - Ultimate Cockpit V5</title>
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Germacer - Tab A7 Lite Edition</title>
     <style>
         :root {
             --bg-color: #000000;
@@ -22,93 +22,67 @@
             overflow: hidden;
         }
 
-        /* --- SHIFT LIGHT --- */
+        /* TELA DE START (Obrigatória para Fullscreen e Sensores) */
+        #splash-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 1000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            cursor: pointer;
+        }
+
+        /* SHIFT LIGHT */
         #shift-light {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none;
-            z-index: 100;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 100;
             box-shadow: inset 0 0 100px rgba(255, 0, 0, 0);
             transition: box-shadow 0.2s;
         }
-
-        .shift-active {
-            animation: shift-pulse 0.4s infinite alternate;
-        }
-
+        .shift-active { animation: shift-pulse 0.4s infinite alternate; }
         @keyframes shift-pulse {
             from { box-shadow: inset 0 0 40px rgba(255, 0, 0, 0.5); background: rgba(255, 0, 0, 0.1); }
             to { box-shadow: inset 0 0 150px rgba(255, 0, 0, 1); background: rgba(255, 0, 0, 0.2); }
         }
 
-        .dashboard-container {
-            display: flex;
-            height: 100vh; width: 100vw;
-            position: relative;
-        }
+        .dashboard-container { display: flex; height: 100vh; width: 100vw; position: relative; }
 
-        /* --- PAINEL ESQUERDO: TELEMETRIA --- */
+        /* TELEMETRIA (ESQUERDA) */
         .telemetry-panel {
-            position: absolute;
-            left: 0; top: 0;
-            width: 45%; height: 100%;
-            display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
+            position: absolute; left: 0; top: 0; width: 45%; height: 100%;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
             z-index: 10;
             background: linear-gradient(90deg, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 75%, rgba(0,0,0,0) 100%);
             pointer-events: none;
         }
 
-        .speed-value {
-            font-size: 14rem; font-weight: 900; line-height: 0.8;
-            letter-spacing: -5px; text-shadow: 0 0 30px rgba(0,0,0,1);
-        }
+        .speed-value { font-size: 16rem; font-weight: 900; line-height: 0.8; letter-spacing: -5px; }
+        .speed-unit { font-size: 2rem; color: var(--accent-color); letter-spacing: 10px; font-weight: bold; }
 
-        .speed-unit {
-            font-size: 1.8rem; color: var(--accent-color);
-            letter-spacing: 10px; font-weight: bold; margin-top: 10px;
-        }
-
-        .g-force-section { width: 70%; margin-top: 40px; pointer-events: auto; }
-        .g-container { width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; position: relative; overflow: hidden; }
+        .g-force-section { width: 70%; margin-top: 50px; pointer-events: auto; }
+        .g-container { width: 100%; height: 12px; background: rgba(255,255,255,0.1); border-radius: 6px; position: relative; overflow: hidden; }
         .g-bar { position: absolute; height: 100%; width: 0%; background: var(--accent-color); left: 50%; transition: width 0.1s ease-out, left 0.1s ease-out; box-shadow: 0 0 15px var(--accent-color); }
 
-        /* --- PAINEL DIREITO: MAPA --- */
+        /* MAPA (DIREITA) */
         .map-panel { position: absolute; right: 0; top: 0; width: 75%; height: 100%; z-index: 1; }
-        
-        iframe { 
-            width: 100%; height: 100%; border: none; 
-            filter: invert(90%) hue-rotate(180deg) brightness(0.5) contrast(1.2);
-        }
+        iframe { width: 100%; height: 100%; border: none; filter: invert(90%) hue-rotate(180deg) brightness(0.5) contrast(1.2); }
 
-        /* Botão Recenter */
         #btn-recenter {
-            position: absolute;
-            bottom: 30px;
-            right: 30px;
-            width: 60px;
-            height: 60px;
-            background: rgba(0, 0, 0, 0.8);
-            color: var(--success-color);
-            border: 2px solid var(--success-color);
-            border-radius: 50%;
-            font-size: 1.8rem;
-            z-index: 30;
-            cursor: pointer;
+            position: absolute; bottom: 30px; right: 30px; width: 70px; height: 70px;
+            background: rgba(0, 0, 0, 0.8); color: var(--success-color); border: 2px solid var(--success-color);
+            border-radius: 50%; font-size: 2rem; z-index: 30; cursor: pointer;
             display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
-            transition: 0.2s;
         }
-
-        #btn-recenter:active { transform: scale(0.9); background: var(--success-color); color: #000; }
 
         #gps-status { position: absolute; top: 25px; right: 25px; width: 12px; height: 12px; border-radius: 50%; background: #333; z-index: 20; }
         .gps-online { background: var(--success-color) !important; box-shadow: 0 0 10px var(--success-color); animation: blink 1.5s infinite; }
-        
         @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.2; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
+
+<div id="splash-screen" onclick="startDashboard()">
+    <h1 style="color: var(--accent-color); letter-spacing: 10px;">GERMACER</h1>
+    <p style="color: #444;">TOQUE PARA INICIAR SISTEMA</p>
+</div>
 
 <div id="shift-light"></div>
 
@@ -118,12 +92,11 @@
             <div class="speed-value" id="current-speed">0</div>
             <div class="speed-unit">KM/H</div>
         </div>
-
         <div class="g-force-section">
             <div class="g-container">
                 <div id="g-bar-lateral" class="g-bar"></div>
             </div>
-            <div style="display: flex; justify-content: space-between; font-size: 0.6rem; color: #444; margin-top: 8px; letter-spacing: 2px; font-weight: bold;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: #444; margin-top: 10px; font-weight: bold;">
                 <span>LEFT</span><span>LATERAL G-FORCE</span><span>RIGHT</span>
             </div>
         </div>
@@ -131,17 +104,12 @@
 
     <div class="map-panel">
         <div id="gps-status"></div>
-        <button id="btn-recenter" title="Centralizar Localização">⌖</button>
-        <iframe 
-            id="map-frame"
-            src="https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d15000!2d-46.94!3d-19.59!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1spt-BR!2sbr!4v1710000000000!5m2!1spt-BR!2sbr&maptype=satellite" 
-            allowfullscreen="" loading="lazy">
-        </iframe>
+        <button id="btn-recenter">⌖</button>
+        <iframe id="map-frame" src="https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d15000!2d-46.94!3d-19.59!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1spt-BR!2sbr!4v1" allowfullscreen="" loading="lazy"></iframe>
     </div>
 </div>
 
 <script>
-    const speedDisplay = document.getElementById('current-speed');
     const shiftLight = document.getElementById('shift-light');
     const mapFrame = document.getElementById('map-frame');
     const LIMIT_SPEED = 60;
@@ -150,61 +118,68 @@
 
     function vibrate(ms = 50) { if (navigator.vibrate) navigator.vibrate(ms); }
 
-    // GPS e Velocidade
+    // INICIALIZAÇÃO FULLSCREEN E SENSORES
+    function startDashboard() {
+        // Entrar em Fullscreen
+        const docEl = document.documentElement;
+        if (docEl.requestFullscreen) docEl.requestFullscreen();
+        else if (docEl.webkitRequestFullscreen) docEl.webkitRequestFullscreen();
+
+        // Ocultar Splash
+        document.getElementById('splash-screen').style.display = 'none';
+
+        // Pedir permissão de movimento (iOS e Android moderno)
+        if (typeof DeviceMotionEvent.requestPermission === 'function') {
+            DeviceMotionEvent.requestPermission();
+        }
+        vibrate(100);
+    }
+
+    // GPS E VELOCIDADE
     if ("geolocation" in navigator) {
         navigator.geolocation.watchPosition(pos => {
             document.getElementById('gps-status').className = 'gps-online';
-            
             userLat = pos.coords.latitude;
             userLon = pos.coords.longitude;
 
             let speed = pos.coords.speed ? Math.round(pos.coords.speed * 3.6) : 0;
             if (speed < 0) speed = 0;
-            speedDisplay.innerText = speed;
+            document.getElementById('current-speed').innerText = speed;
 
-            // Shift Light
             if (speed > LIMIT_SPEED) {
-                if (!shiftLight.classList.contains('shift-active')) {
-                    shiftLight.classList.add('shift-active');
-                    vibrate([100, 50, 100]);
-                }
+                shiftLight.classList.add('shift-active');
             } else {
                 shiftLight.classList.remove('shift-active');
             }
         }, null, { enableHighAccuracy: true });
     }
 
-    // Função de Centralizar Mapa
+    // RECENTRALIZAR MAPA
     document.getElementById('btn-recenter').onclick = function() {
         vibrate(60);
-        // Atualiza o Iframe para a posição atual do GPS
-        const newUrl = `https://www.google.com/maps?q=${userLat},${userLon}&z=16&output=embed&hl=pt-BR`;
+        const newUrl = `https://www.google.com/maps?q=${userLat},${userLon}&z=16&output=embed`;
         mapFrame.src = newUrl;
     };
 
-    // G-Force Lateral
+    // G-FORCE AJUSTADO PARA MODO PAISAGEM (LANDSCAPE)
+    // No modo paisagem do Android, o eixo Y do sensor vira o movimento lateral
     window.addEventListener('devicemotion', event => {
-        let x = event.accelerationIncludingGravity.x || 0;
+        let y = event.accelerationIncludingGravity.y || 0; 
         const gBar = document.getElementById('g-bar-lateral');
-        let intensity = (x / 9.8) * 100; 
+        
+        // Em modo paisagem, usamos o eixo Y para detectar a inclinação lateral do carro
+        // Multiplicamos por -1 ou invertemos a lógica dependendo de como o tablet está fixado
+        let intensity = (y / 9.8) * 100; 
 
-        if (x > 0) {
+        if (y < 0) { // Curva para um lado
             gBar.style.left = "50%";
             gBar.style.width = Math.min(Math.abs(intensity), 50) + "%";
-        } else {
+        } else { // Curva para o outro
             let width = Math.min(Math.abs(intensity), 50);
             gBar.style.left = (50 - width) + "%";
             gBar.style.width = width + "%";
         }
     });
-
-    // Desbloqueio de sensores
-    document.body.onclick = () => {
-        if (typeof DeviceMotionEvent.requestPermission === 'function') {
-            DeviceMotionEvent.requestPermission();
-        }
-    };
 </script>
-
 </body>
 </html>
