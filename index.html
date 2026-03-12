@@ -7,6 +7,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <title>Germacer - Navi Dashboard V6</title>
     <style>
+        /* MODO ESCURO PADRÃO */
         :root {
             --bg-color: #000000;
             --panel-bg: linear-gradient(90deg, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 75%, rgba(0,0,0,0) 100%);
@@ -16,17 +17,19 @@
             --success-color: #00ff00;
             --text-main: #ffffff;
             --text-dim: #444;
-            --map-filter: invert(90%) hue-rotate(180deg) brightness(0.5) contrast(1.2);
+            --map-filter: invert(90%) hue-rotate(180deg) brightness(0.3) contrast(1.2);
             --btn-bg: rgba(0, 0, 0, 0.8);
         }
 
-        .light-mode {
+        /* MODO CLARO - Forçado com body para garantir prioridade */
+        body.light-mode {
             --bg-color: #f0f0f0;
             --panel-bg: linear-gradient(90deg, rgba(240,240,240,1) 0%, rgba(240,240,240,1) 75%, rgba(240,240,240,0) 100%);
             --text-main: #1a1a1a;
             --text-dim: #888;
             --map-filter: none;
             --btn-bg: rgba(255, 255, 255, 0.9);
+            --success-color: #008800; /* Um verde mais escuro para leitura no claro */
         }
 
         body, html {
@@ -36,6 +39,7 @@
             font-family: 'Segoe UI', Roboto, sans-serif;
             height: 100vh; width: 100vw;
             overflow: hidden;
+            transition: background-color 0.5s ease;
         }
 
         /* --- TELA DE BOAS VINDAS --- */
@@ -103,18 +107,37 @@
         .info-data { font-size: 2.5rem; font-weight: 700; }
         .info-label { font-size: 0.8rem; color: var(--text-dim); font-weight: bold; letter-spacing: 2px; }
 
+        /* --- MAPA INTERATIVO FIXO --- */
         .map-panel { position: absolute; right: 0; top: 0; width: 75%; height: 100%; z-index: 1; background: #000; }
-        #map-frame { width: 100%; height: 100%; border: none; filter: var(--map-filter); transition: filter 0.5s; }
+        #map-frame { 
+            width: 100%; height: 100%; border: none; 
+            filter: var(--map-filter); 
+            transition: filter 0.5s;
+            opacity: 0.8;
+        }
 
         .controls-layer { position: absolute; bottom: 30px; right: 30px; display: flex; flex-direction: column; gap: 15px; z-index: 110; }
         .btn-action {
             width: 65px; height: 65px; background: var(--btn-bg); color: var(--success-color); 
             border: 2px solid var(--success-color); border-radius: 50%; cursor: pointer;
             display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem;
+            transition: all 0.3s;
         }
         .btn-off { color: #444 !important; border-color: #444 !important; }
         #gps-status { position: absolute; top: 25px; right: 25px; width: 12px; height: 12px; border-radius: 50%; background: #222; z-index: 20; }
         .gps-online { background: var(--success-color) !important; box-shadow: 0 0 10px var(--success-color); }
+
+        /* --- ELEMENTOS DO SENSOR BÉZIER --- */
+        #bezier-canvas {
+            position: absolute; right: 20px; top: 50px; width: 150px; height: 200px;
+            pointer-events: none; z-index: 120;
+        }
+        #sensor-menu {
+            position: fixed; top: 10px; left: 10px; background: rgba(0,0,0,0.95);
+            padding: 15px; border-radius: 10px; z-index: 2500; border: 1px solid #333;
+            display: none; flex-direction: column; gap: 8px; font-size: 0.75rem; color: white;
+        }
+        .menu-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
     </style>
 </head>
 <body>
@@ -127,6 +150,14 @@
         <p style="color: #fff; font-size: 1.2rem; font-weight: 300;">TOQUE PARA INICIAR</p>
     </div>
     <div class="splash-right"></div>
+</div>
+
+<div id="sensor-menu">
+    <b style="color: var(--success-color);">Ajustes de Eixo</b>
+    <div class="menu-row"><label>Ativo</label><input type="checkbox" id="bz-active" checked></div>
+    <div class="menu-row"><label>Sensib.</label><input type="range" id="bz-sens" min="1" max="50" value="25"></div>
+    <div class="menu-row"><label>Inverter</label><input type="checkbox" id="bz-invert"></div>
+    <button onclick="toggleMenu()" style="background:#222; color:#fff; border:none; padding:5px; cursor:pointer;">OK</button>
 </div>
 
 <div id="alert-layer"></div>
@@ -156,18 +187,18 @@
     </div>
 
     <div class="map-panel">
+        <canvas id="bezier-canvas"></canvas>
         <div id="gps-status"></div>
         <div class="controls-layer">
+            <button class="btn-action" onclick="toggleMenu()">⚙</button>
             <button class="btn-action" id="btn-alert" onclick="toggleAlert()">S</button>
             <button class="btn-action" id="btn-theme" onclick="toggleTheme()">N</button>
-            <button class="btn-action" onclick="forceRecenter()">⌖</button>
         </div>
-        <iframe id="map-frame" src="about:blank"></iframe>
+        <iframe id="map-frame" src="https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d15000!2d-43.93!3d-19.92!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1spt-BR!2sbr!4v1600000000000!5m2!1spt-BR!2sbr"></iframe>
     </div>
 </div>
 
 <script>
-    // Configuração de Áudios Externos
     const sounds = {
         start: new Audio('start.mp3'),
         alert: new Audio('alert.mp3'),
@@ -177,65 +208,115 @@
 
     const alertLayer = document.getElementById('alert-layer');
     const idleCard = document.getElementById('idle-card');
-    const mapFrame = document.getElementById('map-frame');
     const btnTheme = document.getElementById('btn-theme');
     const btnAlert = document.getElementById('btn-alert');
 
-    let isDark = true;
-    let alertEnabled = true;
-    let lastLat = 0, lastLon = 0;
-    let manualDismiss = false;
-    let speedAlertInterval = null;
-    let idleAlertInterval = null;
+    // Lógica do Efeito Bézier
+    const canvas = document.getElementById('bezier-canvas');
+    const ctx = canvas.getContext('2d');
+    let tiltX = 0;
+    let bzConfig = { active: true, sens: 25, invert: false };
+
+    function toggleMenu() {
+        const m = document.getElementById('sensor-menu');
+        m.style.display = (m.style.display === 'flex') ? 'none' : 'flex';
+        playSound('click');
+    }
+
+    function drawCurve() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (!bzConfig.active) return requestAnimationFrame(drawCurve);
+
+        const w = canvas.width;
+        const h = canvas.height;
+        const centerX = w / 2;
+        const shift = tiltX * (bzConfig.sens / 10) * (bzConfig.invert ? -1 : 1);
+        const targetX = centerX + shift;
+
+        // Captura a cor atual da variável CSS para o Canvas mudar com o tema
+        ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--success-color').trim();
+        ctx.lineWidth = 3;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = ctx.strokeStyle;
+
+        ctx.beginPath();
+        ctx.moveTo(centerX, h - 20);
+        ctx.quadraticCurveTo(targetX, h / 2, centerX, 20);
+        ctx.stroke();
+
+        ctx.save();
+        ctx.translate(centerX, 20);
+        ctx.rotate((shift / 50));
+        ctx.beginPath();
+        ctx.moveTo(-8, 10);
+        ctx.lineTo(0, 0);
+        ctx.lineTo(8, 10);
+        ctx.stroke();
+        ctx.restore();
+
+        requestAnimationFrame(drawCurve);
+    }
+
+    window.addEventListener('deviceorientation', (e) => {
+        if (e.gamma !== null) tiltX = e.gamma;
+    });
+
+    document.getElementById('bz-active').onchange = (e) => bzConfig.active = e.target.checked;
+    document.getElementById('bz-sens').oninput = (e) => bzConfig.sens = e.target.value;
+    document.getElementById('bz-invert').onchange = (e) => bzConfig.invert = e.target.checked;
 
     function playSound(name) {
         if (sounds[name]) {
             sounds[name].currentTime = 0;
-            sounds[name].play().catch(e => console.warn("Erro ao reproduzir áudio"));
-        }
-    }
-
-    function updateMap(lat, lon) {
-        if (Math.abs(lastLat - lat) > 0.0001 || Math.abs(lastLon - lon) > 0.0001) {
-            mapFrame.src = `https://maps.google.com/maps?q=${lat},${lon}&z=17&output=embed`;
-            lastLat = lat;
-            lastLon = lon;
+            sounds[name].play().catch(e => console.warn("Áudio pendente."));
         }
     }
 
     function forceRecenter() {
         playSound('click');
-        if (lastLat !== 0) {
-            mapFrame.src = `https://maps.google.com/maps?q=${lastLat},${lastLon}&z=17&output=embed`;
-        }
+        const frame = document.getElementById('map-frame');
+        const currentSrc = frame.src;
+        frame.src = currentSrc;
+    }
+
+    let isDark = true; // Definido globalmente para o botão funcionar
+
+    function toggleTheme() {
+        playSound('click');
+        isDark = !isDark;
+        document.body.classList.toggle('light-mode');
+        btnTheme.innerText = isDark ? "N" : "D";
     }
 
     function startDashboard() {
         playSound('start');
         document.getElementById('splash-screen').style.opacity = '0';
-        setTimeout(() => document.getElementById('splash-screen').style.display = 'none', 800);
+        setTimeout(() => {
+            document.getElementById('splash-screen').style.display = 'none';
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            drawCurve();
+        }, 800);
         
+        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+            DeviceOrientationEvent.requestPermission();
+        }
+
         if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
         
         if ("geolocation" in navigator) {
             navigator.geolocation.watchPosition(pos => {
                 document.getElementById('gps-status').className = 'gps-online';
-                
-                const lat = pos.coords.latitude;
-                const lon = pos.coords.longitude;
                 const speed = pos.coords.speed ? Math.round(pos.coords.speed * 3.6) : 0;
                 
                 document.getElementById('current-speed').innerText = speed;
                 document.getElementById('altitude-val').innerText = Math.round(pos.coords.altitude || 0);
-                updateMap(lat, lon);
 
-                // Bússola
                 if (pos.coords.heading !== null) {
                     const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
                     document.getElementById('compass-val').innerText = dirs[Math.round(pos.coords.heading / 45) % 8];
                 }
 
-                // Alertas de Velocidade
                 alertLayer.className = "";
                 if (speed >= 60) {
                     alertLayer.classList.add('alert-red');
@@ -249,15 +330,23 @@
                     stopSpeedAlert();
                 }
 
-                // Lógica de Veículo Parado
-                if (speed === 0 && !manualDismiss) {
-                    if (!idleCard.classList.contains('active')) {
-                        idleCard.classList.add('active');
-                        startIdleSound();
+                if (speed === 0) {
+                    if (!alreadyPlayedIdleOnce && alertEnabled && !manualDismiss) {
+                        playSound('idle');
+                        alreadyPlayedIdleOnce = true;
+                        idleTimer = setTimeout(() => {
+                            if (!idleAlertInterval && alertEnabled && !manualDismiss) {
+                                idleAlertInterval = setInterval(() => playSound('idle'), 6000);
+                            }
+                        }, 15000);
                     }
+                    if (!manualDismiss) idleCard.classList.add('active');
                 } else if (speed > 3) {
                     idleCard.classList.remove('active');
-                    stopIdleSound();
+                    if (idleAlertInterval) clearInterval(idleAlertInterval);
+                    idleAlertInterval = null;
+                    clearTimeout(idleTimer);
+                    alreadyPlayedIdleOnce = false;
                     manualDismiss = false;
                 }
 
@@ -265,19 +354,10 @@
         }
     }
 
-    function startIdleSound() {
-        if (!idleAlertInterval && alertEnabled) {
-            playSound('idle');
-            idleAlertInterval = setInterval(() => playSound('idle'), 6000);
-        }
-    }
-
-    function stopIdleSound() {
-        if (idleAlertInterval) {
-            clearInterval(idleAlertInterval);
-            idleAlertInterval = null;
-        }
-    }
+    let alertEnabled = true;
+    let speedAlertInterval = null;
+    let idleAlertInterval = null;
+    let idleTimer = null;
 
     function stopSpeedAlert() {
         if (speedAlertInterval) {
@@ -286,20 +366,15 @@
         }
     }
 
-    function toggleTheme() {
-        playSound('click');
-        isDark = !isDark;
-        document.body.classList.toggle('light-mode');
-        btnTheme.innerText = isDark ? "N" : "D";
-    }
-
     function toggleAlert() {
         playSound('click');
         alertEnabled = !alertEnabled;
         btnAlert.classList.toggle('btn-off', !alertEnabled);
         if (!alertEnabled) {
             stopSpeedAlert();
-            stopIdleSound();
+            if (idleAlertInterval) clearInterval(idleAlertInterval);
+            idleAlertInterval = null;
+            clearTimeout(idleTimer);
         }
     }
 
@@ -307,7 +382,9 @@
         playSound('click');
         manualDismiss = true;
         idleCard.classList.remove('active');
-        stopIdleSound();
+        if (idleAlertInterval) clearInterval(idleAlertInterval);
+        idleAlertInterval = null;
+        clearTimeout(idleTimer);
     }
 </script>
 </body>
